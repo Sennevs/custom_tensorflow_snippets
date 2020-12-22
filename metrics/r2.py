@@ -46,7 +46,6 @@ class R2(tf.keras.metrics.Metric):
         tot_values = tot_values if sample_weight is None else tot_values * sample_weight
         tot_values = tf.reduce_sum(tot_values)
         self.ss_tot.assign_add(tot_values)
-        print(self.ss_tot)
 
         # Calculate running regression error (SSE)
         res_values = tf.math.square(y_true - y_pred)
