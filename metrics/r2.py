@@ -4,7 +4,6 @@ import tensorflow as tf
 class R2(tf.keras.metrics.Metric):
 
     def __init__(self, name='r2', **kwargs):
-
         """
         Custom Keras metric that calculates the R-squared (R2) incrementally based on the West weighted incremental
         variance algorithm.
@@ -20,7 +19,6 @@ class R2(tf.keras.metrics.Metric):
         return
 
     def update_state(self, y_true, y_pred, sample_weight=None):
-
         # Cast input tensors
         y_true = tf.cast(y_true, tf.float32)
         y_pred = tf.cast(y_pred, tf.float32)
@@ -38,7 +36,7 @@ class R2(tf.keras.metrics.Metric):
         # Calculate running average
         mean_values = (y_true - self.mean)
         mean_values = mean_values if sample_weight is None else mean_values * sample_weight
-        mean_values = tf.reduce_sum(mean_values) / self.count
+        mean_values = tf.reduce_sum(mean_values) / self.sample_weights
         self.mean.assign_add(mean_values)
 
         # Calculate running total variance (SST)
@@ -58,10 +56,145 @@ class R2(tf.keras.metrics.Metric):
     def result(self):
         return 1 - self.ss_res / (self.ss_tot + tf.keras.backend.epsilon())
 
-# Example code
-# r2 = R2()
-# y_pred = tf.constant([2.601, 3.83, 5.059, 7.517])
-# y_true = tf.constant([2.0, 4.0, 6.0, 7.0])
-# sw = tf.constant([0.25, 0.25, 0.25, 0.25])
-# r2.update_state(y_true, y_pred, sw)
-# print(r2.result())
+
+class ForwardKLDivergence(tf.keras.metrics.KLDivergence):
+
+    def __init__(self, name='forward_kl_divergence', **kwargs):
+        """
+        Custom Keras metric that calculates forward KL-Divergence, which is basically just a rename of the standard
+        KLDivergence class in Keras.
+        """
+
+        super(ForwardKLDivergence, self).__init__(name=name, **kwargs)
+
+        return
+
+
+class BackwardKLDivergence(tf.keras.metrics.KLDivergence):
+
+    def __init__(self, name='backward_kl_divergence', **kwargs):
+        """
+        Custom Keras metric that calculates backward KL-Divergence, which is basically just the KLDivergence class in Keras
+        with the y_true and y_pred parameters switched.
+        """
+
+        super(BackwardKLDivergence, self).__init__(name=name, **kwargs)
+
+        return
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        return super(BackwardKLDivergence, self).update_state(y_pred, y_true, sample_weight)
+
+
+class TrueEntropy(tf.keras.metrics.CategoricalCrossentropy):
+
+    def __init__(self, name='true_entropy', **kwargs):
+        """
+        Custom Keras metric that calculates backward KL-Divergence, which is basically just the KLDivergence class in Keras
+        with the y_true and y_pred parameters switched.
+        """
+
+        super(TrueEntropy, self).__init__(name=name, **kwargs)
+
+        return
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        return super(TrueEntropy, self).update_state(y_true, y_true, sample_weight)
+
+
+class PredictedEntropy(tf.keras.metrics.CategoricalCrossentropy):
+
+    def __init__(self, name='true_entropy', **kwargs):
+        """
+        Custom Keras metric that calculates backward KL-Divergence, which is basically just the KLDivergence class in Keras
+        with the y_true and y_pred parameters switched.
+        """
+
+        super(PredictedEntropy, self).__init__(name=name, **kwargs)
+
+        return
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        return super(PredictedEntropy, self).update_state(y_pred, y_pred, sample_weight)
+
+
+class TrueEntropyCustom(tf.keras.metrics.KLDivergence):
+
+    def __init__(self, name='forward_kl_divergence', **kwargs):
+        """
+        Custom Keras metric that calculates forward KL-Divergence, which is basically just a rename of the standard
+        KLDivergence class in Keras.
+        """
+
+        super(ForwardKLDivergence, self).__init__(name=name, **kwargs)
+
+        self.entropy = self.add_weight(name='entropy', initializer='zeros')
+        self.sample_weights = self.add_weight(name='sample_weights', initializer='zeros')
+
+        return
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        # Cast input tensors
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.cast(y_pred, tf.float32)
+        if sample_weight is not None:
+            sample_weight = tf.cast(sample_weight, tf.float32)
+
+        # Calculate running weights
+        sw_values = tf.shape(y_true)[0] if sample_weight is None else sample_weight
+        sw_values = tf.reduce_sum(tf.cast(sw_values, tf.float32))
+        self.sample_weights.assign_add(sw_values)
+
+        # Calculate running entropy average
+        entropy = -y_true * tf.math.log(y_true)
+        entropy_values = (entropy - self.entropy)
+        entropy_values = entropy_values if sample_weight is None else entropy_values * sample_weight
+        entropy_values = tf.reduce_sum(entropy_values) / self.sample_weights
+        self.entropy.assign_add(entropy_values)
+
+        return
+
+    def result(self):
+        return self.entropy
+
+
+class PredictedEntropyCustom(tf.keras.metrics.KLDivergence):
+
+    def __init__(self, name='forward_kl_divergence', **kwargs):
+        """
+        Custom Keras metric that calculates forward KL-Divergence, which is basically just a rename of the standard
+        KLDivergence class in Keras.
+        """
+
+        super(ForwardKLDivergence, self).__init__(name=name, **kwargs)
+
+        self.entropy = self.add_weight(name='entropy', initializer='zeros')
+        self.sample_weights = self.add_weight(name='sample_weights', initializer='zeros')
+
+        return
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        # Cast input tensors
+        y_true = tf.cast(y_true, tf.float32)
+        y_pred = tf.cast(y_pred, tf.float32)
+        if sample_weight is not None:
+            sample_weight = tf.cast(sample_weight, tf.float32)
+
+        # Calculate running weights
+        sw_values = tf.shape(y_true)[0] if sample_weight is None else sample_weight
+        sw_values = tf.reduce_sum(tf.cast(sw_values, tf.float32))
+        self.sample_weights.assign_add(sw_values)
+
+        # Calculate running entropy average
+        entropy = -y_true * tf.math.log(y_true)
+        entropy_values = (entropy - self.entropy)
+        entropy_values = entropy_values if sample_weight is None else entropy_values * sample_weight
+        entropy_values = tf.reduce_sum(entropy_values) / self.sample_weights
+        self.entropy.assign_add(entropy_values)
+
+        return
+
+    def result(self):
+        return self.entropy
+
+
